@@ -34,7 +34,7 @@ import {
   createNft,
 } from "@metaplex-foundation/mpl-token-metadata";
 
-const candyMachinePk = "55jk8pW3votGNqcbrceop5ox641eDmBM4Bh8b7C9avGx";
+const candyMachinePk = "36LNd3XTJHS9gFs3kyBf9WraKQvFXaajmwsannucteyw";
 const RPC = "https://api.devnet.solana.com";
 
 import bs58 from "bs58";
@@ -66,31 +66,29 @@ async function createCollection() {
     sellerFeeBasisPoints: percentAmount(0), // 9.99%
     isCollection: true,
   }).sendAndConfirm(umi);
-  const hash = Buffer.from(collection.signature).toString("hex");
-  console.log(`✅ - Minted Collection NFT: ${hash}`);
+  console.log(`✅ - Minted Collection NFT: ${collection.signature.toString()}`);
   console.log(
-    `     https://explorer.solana.com/address/${hash}?cluster=devnet`
+    `     https://explorer.solana.com/address/${collection.signature.toString()}?cluster=devnet`
   );
-  console.log(
-    `Collection mint: ${bs58.encode(Buffer.from(collectionMint.publicKey))}`
-  );
-  return bs58.encode(Buffer.from(collectionMint.publicKey));
+  console.log(`Collection mint: ${collectionMint.publicKey.toString()}`);
+  return collectionMint.publicKey;
 }
 
 async function createMachine(
-  collectionMint: any,
-  collectionUpdateAuthority: any
+  collectionMint: string,
+  collectionUpdateAuthority: any,
+  itemsAvailable = 50
 ) {
   // Create the Candy Machine.
   const candyMachine = generateSigner(umi);
   (
     await create(umi, {
       candyMachine,
-      collectionMint: collectionMint,
+      collectionMint: publicKey(collectionMint),
       collectionUpdateAuthority,
       tokenStandard: TokenStandard.NonFungible,
       sellerFeeBasisPoints: percentAmount(0),
-      itemsAvailable: 50,
+      itemsAvailable,
       creators: [
         {
           address: umi.identity.publicKey,
@@ -206,16 +204,16 @@ async function updateGuard(candyMachinePk: string) {
     candyGuard: candyGuard.publicKey,
     guards: {},
     groups: [
-      {
-        label: "ad",
-        guards: {
-          addressGate: some({ address: mySigner.publicKey }), //only admin
-          allocation: some({
-            id: 11,
-            limit: 550,
-          }),
-        },
-      },
+      // {
+      //   label: "ad",
+      //   guards: {
+      //     addressGate: some({ address: mySigner.publicKey }), //only admin
+      //     allocation: some({
+      //       id: 11,
+      //       limit: 550,
+      //     }),
+      //   },
+      // },
       {
         label: "pre",
         guards: {
@@ -228,7 +226,7 @@ async function updateGuard(candyMachinePk: string) {
             destination: mySigner.publicKey,
           }),
           mintLimit: some({ id: 13, limit: 1 }),
-          allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
+          // allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -249,7 +247,7 @@ async function updateGuard(candyMachinePk: string) {
             limit: 3500,
           }),
           mintLimit: some({ id: 15, limit: 2 }),
-          allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
+          // allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -278,15 +276,15 @@ async function updateGuard(candyMachinePk: string) {
 
 async function init() {
   console.log("init");
-  await route(umi, {
-    candyMachine: publicKey(candyMachinePk),
-    guard: "allocation",
-    routeArgs: {
-      id: 11,
-      candyGuardAuthority: umi.identity,
-    },
-    group: some("ad"),
-  }).sendAndConfirm(umi);
+  // await route(umi, {
+  //   candyMachine: publicKey(candyMachinePk),
+  //   guard: "allocation",
+  //   routeArgs: {
+  //     id: 11,
+  //     candyGuardAuthority: umi.identity,
+  //   },
+  //   group: some("ad"),
+  // }).sendAndConfirm(umi);
 
   await route(umi, {
     candyMachine: publicKey(candyMachinePk),
@@ -317,21 +315,21 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
 
   return await transactionBuilder()
     .add(setComputeUnitLimit(umiacc, { units: 800_000 }))
-    .add(
-      route(umiacc, {
-        candyMachine: publicKey(candyMachinePk),
-        guard: "allowList",
-        group: some("pre"),
-        routeArgs: {
-          path: "proof",
-          merkleRoot: getMerkleRoot(allowListPre),
-          merkleProof: getMerkleProof(
-            allowListPre,
-            umiacc.identity.publicKey.toString()
-          ),
-        },
-      })
-    )
+    // .add(
+    //   route(umiacc, {
+    //     candyMachine: publicKey(candyMachinePk),
+    //     guard: "allowList",
+    //     group: some("pre"),
+    //     routeArgs: {
+    //       path: "proof",
+    //       merkleRoot: getMerkleRoot(allowListPre),
+    //       merkleProof: getMerkleProof(
+    //         allowListPre,
+    //         umiacc.identity.publicKey.toString()
+    //       ),
+    //     },
+    //   })
+    // )
     .add(
       mintV2(umiacc, {
         candyMachine: candyMachine.publicKey,
@@ -350,7 +348,7 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
             destination: mySigner.publicKey,
           }),
           mintLimit: some({ id: 13, limit: 1 }),
-          allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
+          // allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -370,21 +368,21 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
 
   return await transactionBuilder()
     .add(setComputeUnitLimit(umi, { units: 800_000 }))
-    .add(
-      route(umi, {
-        candyMachine: publicKey(candyMachinePk),
-        guard: "allowList",
-        group: some("wl"),
-        routeArgs: {
-          path: "proof",
-          merkleRoot: getMerkleRoot(allowListWL),
-          merkleProof: getMerkleProof(
-            allowListWL,
-            umi.identity.publicKey.toString()
-          ),
-        },
-      })
-    )
+    // .add(
+    //   route(umi, {
+    //     candyMachine: publicKey(candyMachinePk),
+    //     guard: "allowList",
+    //     group: some("wl"),
+    //     routeArgs: {
+    //       path: "proof",
+    //       merkleRoot: getMerkleRoot(allowListWL),
+    //       merkleProof: getMerkleProof(
+    //         allowListWL,
+    //         umi.identity.publicKey.toString()
+    //       ),
+    //     },
+    //   })
+    // )
     .add(
       mintV2(umi, {
         candyMachine: candyMachine.publicKey,
@@ -403,7 +401,7 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
             limit: 3500,
           }),
           mintLimit: some({ id: 15, limit: 2 }),
-          allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
+          // allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -467,28 +465,28 @@ async function getGuard() {
     console.log(g);
   }
 }
-
+// collectionMint 3zXYT4GmN8fuZ3USbHCsz3po5hnP9Nz2Vd2wxFWDvpgj
+// candy machine: 36LNd3XTJHS9gFs3kyBf9WraKQvFXaajmwsannucteyw
 async function main() {
   // const collectionMint = await createCollection();
-  // await createMachine(collectionMint, mySigner.publicKey);
+  // await createMachine(
+  //   "3zXYT4GmN8fuZ3USbHCsz3po5hnP9Nz2Vd2wxFWDvpgj",
+  //   mySigner.publicKey,
+  //   5050
+  // );
   // await insertItems(
   //   candyMachinePk,
   //   0,
-  //   50,
+  //   5050,
   //   50
   // );
   // await candyMachineUpdate(candyMachinePk);
   // await updateGuard(candyMachinePk);
-  // const nft = await mintDefault(
-  //   collectionMint,
-  //   candyMachinePk,
-  //   mySigner.publicKey.toString()
-  // );
-  // console.log("nft", nft);
-  // await testMint();
-  // await testMintDefault();
   // await init();
   // await getGuard();
+
+  await testMint();
+  // await testMintDefault();
 }
 
 main();
