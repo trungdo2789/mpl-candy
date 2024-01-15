@@ -118,7 +118,8 @@ export async function insertItems(
   candyMachinePk: string,
   from: number,
   to: number,
-  batch = 10
+  batch = 10,
+  startIndex = from
 ) {
   const candyMachinePublicKey = publicKey(candyMachinePk);
   const candyMachine = await fetchCandyMachine(umi, candyMachinePublicKey);
@@ -132,9 +133,10 @@ export async function insertItems(
   }
   for (let i = 0; i < items.length; i += batch) {
     const sliceItem = items.slice(i, i + batch);
+    console.log("sliceItem", sliceItem);
     const rsp = await addConfigLines(umi, {
       candyMachine: candyMachine.publicKey,
-      index: i + from,
+      index: i + startIndex,
       configLines: sliceItem,
     }).sendAndConfirm(umi);
     console.log(`✅ - Items added to Candy Machine: ${candyMachinePk}`);
