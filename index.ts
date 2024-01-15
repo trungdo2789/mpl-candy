@@ -32,10 +32,11 @@ import {
 import {
   TokenStandard,
   createNft,
+  verifyCollection,
 } from "@metaplex-foundation/mpl-token-metadata";
 
 const candyMachinePk = "36LNd3XTJHS9gFs3kyBf9WraKQvFXaajmwsannucteyw";
-const RPC = "https://api.devnet.solana.com";
+export const RPC = "https://api.devnet.solana.com";
 
 import bs58 from "bs58";
 
@@ -47,11 +48,11 @@ import secret1 from "./secret1.json";
 import { getMerkleProof } from "@metaplex-foundation/js";
 
 // Use the RPC endpoint of your choice.
-const umi1 = createUmi(RPC).use(mplCandyMachine());
+ const umi1 = createUmi(RPC).use(mplCandyMachine());
 const keypair = umi1.eddsa.createKeypairFromSecretKey(Buffer.from(secret));
-const umi = umi1.use(keypairIdentity(keypair));
+export const umi = umi1.use(keypairIdentity(keypair));
 
-const mySigner = createSignerFromKeypair(umi, keypair);
+export const mySigner = createSignerFromKeypair(umi, keypair);
 
 console.log("admin signer", mySigner.publicKey);
 
@@ -74,7 +75,7 @@ async function createCollection() {
   return collectionMint.publicKey;
 }
 
-async function createMachine(
+export async function createMachine(
   collectionMint: string,
   collectionUpdateAuthority: any,
   itemsAvailable = 50
@@ -89,6 +90,7 @@ async function createMachine(
       tokenStandard: TokenStandard.NonFungible,
       sellerFeeBasisPoints: percentAmount(0),
       itemsAvailable,
+      symbol: "CHIPZ",
       creators: [
         {
           address: umi.identity.publicKey,
@@ -112,7 +114,7 @@ async function createMachine(
   );
 }
 
-async function insertItems(
+export async function insertItems(
   candyMachinePk: string,
   from: number,
   to: number,
@@ -466,27 +468,6 @@ async function getGuard() {
   }
 }
 
-
-// async function adminMint(mintTo:string) {
-//   const nftMint = generateSigner(umi);
-//   const collection = await createNft(umi, {
-//     mint: nftMint,
-//     authority: mySigner,
-//     name: "CHIPZ Collection NFT",
-//     symbol: "CHIPZ",
-//     uri: "https://bafybeifpyhhx4tufmzikpyty3dvi4veh5xgx4zk47iago524b4h45oxoke.ipfs.nftstorage.link/1.json",
-//     sellerFeeBasisPoints: percentAmount(0), // 9.99%
-//     isCollection: false,
-//   }).sendAndConfirm(umi);
-//   console.log(`✅ - Minted Collection NFT: ${collection.signature.toString()}`);
-//   console.log(
-//     `     https://explorer.solana.com/address/${collection.signature.toString()}?cluster=devnet`
-//   );
-//   console.log(`Collection mint: ${collectionMint.publicKey.toString()}`);
-//   return collectionMint.publicKey;
-// }
-
-
 // collectionMint 3zXYT4GmN8fuZ3USbHCsz3po5hnP9Nz2Vd2wxFWDvpgj
 // candy machine: 36LNd3XTJHS9gFs3kyBf9WraKQvFXaajmwsannucteyw
 async function main() {
@@ -503,10 +484,9 @@ async function main() {
   //   50
   // );
   // await candyMachineUpdate(candyMachinePk);
-  await updateGuard(candyMachinePk);
+  // await updateGuard(candyMachinePk);
   // await init();
   // await getGuard();
-
   // await testMint();
   // await testMintDefault();
 }
