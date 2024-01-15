@@ -226,7 +226,7 @@ async function updateGuard(candyMachinePk: string) {
             destination: mySigner.publicKey,
           }),
           mintLimit: some({ id: 13, limit: 1 }),
-          // allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
+          allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -247,7 +247,7 @@ async function updateGuard(candyMachinePk: string) {
             limit: 3500,
           }),
           mintLimit: some({ id: 15, limit: 2 }),
-          // allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
+          allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -315,21 +315,21 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
 
   return await transactionBuilder()
     .add(setComputeUnitLimit(umiacc, { units: 800_000 }))
-    // .add(
-    //   route(umiacc, {
-    //     candyMachine: publicKey(candyMachinePk),
-    //     guard: "allowList",
-    //     group: some("pre"),
-    //     routeArgs: {
-    //       path: "proof",
-    //       merkleRoot: getMerkleRoot(allowListPre),
-    //       merkleProof: getMerkleProof(
-    //         allowListPre,
-    //         umiacc.identity.publicKey.toString()
-    //       ),
-    //     },
-    //   })
-    // )
+    .add(
+      route(umiacc, {
+        candyMachine: publicKey(candyMachinePk),
+        guard: "allowList",
+        group: some("pre"),
+        routeArgs: {
+          path: "proof",
+          merkleRoot: getMerkleRoot(allowListPre),
+          merkleProof: getMerkleProof(
+            allowListPre,
+            umiacc.identity.publicKey.toString()
+          ),
+        },
+      })
+    )
     .add(
       mintV2(umiacc, {
         candyMachine: candyMachine.publicKey,
@@ -348,7 +348,7 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
             destination: mySigner.publicKey,
           }),
           mintLimit: some({ id: 13, limit: 1 }),
-          // allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
+          allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -368,21 +368,21 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
 
   return await transactionBuilder()
     .add(setComputeUnitLimit(umi, { units: 800_000 }))
-    // .add(
-    //   route(umi, {
-    //     candyMachine: publicKey(candyMachinePk),
-    //     guard: "allowList",
-    //     group: some("wl"),
-    //     routeArgs: {
-    //       path: "proof",
-    //       merkleRoot: getMerkleRoot(allowListWL),
-    //       merkleProof: getMerkleProof(
-    //         allowListWL,
-    //         umi.identity.publicKey.toString()
-    //       ),
-    //     },
-    //   })
-    // )
+    .add(
+      route(umi, {
+        candyMachine: publicKey(candyMachinePk),
+        guard: "allowList",
+        group: some("wl"),
+        routeArgs: {
+          path: "proof",
+          merkleRoot: getMerkleRoot(allowListWL),
+          merkleProof: getMerkleProof(
+            allowListWL,
+            umi.identity.publicKey.toString()
+          ),
+        },
+      })
+    )
     .add(
       mintV2(umi, {
         candyMachine: candyMachine.publicKey,
@@ -401,7 +401,7 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
             limit: 3500,
           }),
           mintLimit: some({ id: 15, limit: 2 }),
-          // allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
+          allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -465,6 +465,28 @@ async function getGuard() {
     console.log(g);
   }
 }
+
+
+// async function adminMint(mintTo:string) {
+//   const nftMint = generateSigner(umi);
+//   const collection = await createNft(umi, {
+//     mint: nftMint,
+//     authority: mySigner,
+//     name: "CHIPZ Collection NFT",
+//     symbol: "CHIPZ",
+//     uri: "https://bafybeifpyhhx4tufmzikpyty3dvi4veh5xgx4zk47iago524b4h45oxoke.ipfs.nftstorage.link/1.json",
+//     sellerFeeBasisPoints: percentAmount(0), // 9.99%
+//     isCollection: false,
+//   }).sendAndConfirm(umi);
+//   console.log(`✅ - Minted Collection NFT: ${collection.signature.toString()}`);
+//   console.log(
+//     `     https://explorer.solana.com/address/${collection.signature.toString()}?cluster=devnet`
+//   );
+//   console.log(`Collection mint: ${collectionMint.publicKey.toString()}`);
+//   return collectionMint.publicKey;
+// }
+
+
 // collectionMint 3zXYT4GmN8fuZ3USbHCsz3po5hnP9Nz2Vd2wxFWDvpgj
 // candy machine: 36LNd3XTJHS9gFs3kyBf9WraKQvFXaajmwsannucteyw
 async function main() {
@@ -481,11 +503,11 @@ async function main() {
   //   50
   // );
   // await candyMachineUpdate(candyMachinePk);
-  // await updateGuard(candyMachinePk);
+  await updateGuard(candyMachinePk);
   // await init();
   // await getGuard();
 
-  await testMint();
+  // await testMint();
   // await testMintDefault();
 }
 
