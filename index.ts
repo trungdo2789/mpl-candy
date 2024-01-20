@@ -48,12 +48,12 @@ import secret1 from "./secret1.json";
 import { getMerkleProof } from "@metaplex-foundation/js";
 
 // Use the RPC endpoint of your choice.
- const umi1 = createUmi(RPC).use(mplCandyMachine());
+const umi1 = createUmi(RPC).use(mplCandyMachine());
 const keypair = umi1.eddsa.createKeypairFromSecretKey(Buffer.from(secret));
 export const umi = umi1.use(keypairIdentity(keypair));
 
 export const mySigner = createSignerFromKeypair(umi, keypair);
-
+const treasury = "E87BUrZc2VxBNuewDuPRYDBWqhghdB2CUPaRBc8YmVid";
 console.log("admin signer", mySigner.publicKey);
 
 async function createCollection() {
@@ -227,9 +227,9 @@ async function updateGuard(candyMachinePk: string) {
           }),
           solPayment: some({
             lamports: sol(0.9),
-            destination: mySigner.publicKey,
+            destination: publicKey(treasury),
           }),
-          mintLimit: some({ id: 13, limit: 1 }),
+          mintLimit: some({ id: 13, limit: 100 }),
           allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
           botTax: some({
             lamports: sol(0.01),
@@ -244,13 +244,13 @@ async function updateGuard(candyMachinePk: string) {
         guards: {
           solPayment: some({
             lamports: sol(1.2),
-            destination: mySigner.publicKey,
+            destination: publicKey(treasury),
           }),
           allocation: some({
             id: 14,
             limit: 3500,
           }),
-          mintLimit: some({ id: 15, limit: 2 }),
+          mintLimit: some({ id: 15, limit: 100 }),
           allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
@@ -264,9 +264,9 @@ async function updateGuard(candyMachinePk: string) {
         guards: {
           solPayment: some({
             lamports: sol(1.3),
-            destination: mySigner.publicKey,
+            destination: publicKey(treasury),
           }),
-          mintLimit: some({ id: 16, limit: 2 }),
+          mintLimit: some({ id: 16, limit: 100 }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -486,7 +486,7 @@ async function main() {
   //   50
   // );
   // await candyMachineUpdate(candyMachinePk);
-  // await updateGuard(candyMachinePk);
+  await updateGuard(candyMachinePk);
   // await init();
   // await getGuard();
   // await testMint();
