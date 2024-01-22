@@ -208,49 +208,18 @@ async function updateGuard(candyMachinePk: string) {
     candyGuard: candyGuard.publicKey,
     guards: {},
     groups: [
-      // {
-      //   label: "ad",
-      //   guards: {
-      //     addressGate: some({ address: mySigner.publicKey }), //only admin
-      //     allocation: some({
-      //       id: 11,
-      //       limit: 550,
-      //     }),
-      //   },
-      // },
-      {
-        label: "pre",
-        guards: {
-          allocation: some({
-            id: 12,
-            limit: 1000,
-          }),
-          solPayment: some({
-            lamports: sol(0.9),
-            destination: publicKey(treasury),
-          }),
-          mintLimit: some({ id: 13, limit: 100 }),
-          allowList: some({ merkleRoot: getMerkleRoot(allowListPre) }),
-          botTax: some({
-            lamports: sol(0.01),
-            lastInstruction: true,
-          }),
-          // startDate: some({ date: dateTime("2022-10-18T16:00:00Z") }),
-          // endDate: some({ date: dateTime("2022-10-18T17:00:00Z") }),
-        },
-      },
       {
         label: "wl",
         guards: {
           solPayment: some({
-            lamports: sol(1.2),
+            lamports: sol(1.1),
             destination: publicKey(treasury),
           }),
           allocation: some({
             id: 14,
-            limit: 3500,
+            limit: 2700,
           }),
-          mintLimit: some({ id: 15, limit: 100 }),
+          mintLimit: some({ id: 15, limit: 2 }),
           allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
@@ -263,10 +232,10 @@ async function updateGuard(candyMachinePk: string) {
         label: "pl",
         guards: {
           solPayment: some({
-            lamports: sol(1.3),
+            lamports: sol(1.2),
             destination: publicKey(treasury),
           }),
-          mintLimit: some({ id: 16, limit: 100 }),
+          mintLimit: some({ id: 16, limit: 2 }),
           botTax: some({
             lamports: sol(0.01),
             lastInstruction: true,
@@ -280,26 +249,6 @@ async function updateGuard(candyMachinePk: string) {
 
 async function init() {
   console.log("init");
-  // await route(umi, {
-  //   candyMachine: publicKey(candyMachinePk),
-  //   guard: "allocation",
-  //   routeArgs: {
-  //     id: 11,
-  //     candyGuardAuthority: umi.identity,
-  //   },
-  //   group: some("ad"),
-  // }).sendAndConfirm(umi);
-
-  await route(umi, {
-    candyMachine: publicKey(candyMachinePk),
-    guard: "allocation",
-    routeArgs: {
-      id: 12,
-      candyGuardAuthority: umi.identity,
-    },
-    group: some("pre"),
-  }).sendAndConfirm(umi);
-
   await route(umi, {
     candyMachine: publicKey(candyMachinePk),
     guard: "allocation",
@@ -425,8 +374,8 @@ async function testMint() {
 
   const umiAcc = umi1.use(keypairIdentity(keypair));
 
-  const nft = await mintPre(umiAcc, candyMachinePk);
-  console.log("nft", bs58.encode(Buffer.from(nft.signature)));
+  // const nft = await mintPre(umiAcc, candyMachinePk);
+  // console.log("nft", bs58.encode(Buffer.from(nft.signature)));
 
   const nft1 = await mintWL(umiAcc, candyMachinePk);
   console.log("nft1", bs58.encode(Buffer.from(nft1.signature)));
