@@ -7,7 +7,7 @@ import {
   some,
   transactionBuilder,
 } from "@metaplex-foundation/umi";
-import { RPC, insertItems, mySigner, umi } from "./index";
+import { RPC, cluster, insertItems, mySigner, umi } from "./common";
 import {
   updateCandyGuard,
   fetchCandyGuard,
@@ -19,17 +19,22 @@ import {
   mplCandyMachine,
   addConfigLines,
   create,
+  mintFromCandyMachineV2,
 } from "@metaplex-foundation/mpl-candy-machine";
 import {
   setComputeUnitLimit,
   createMintWithAssociatedToken,
 } from "@metaplex-foundation/mpl-toolbox";
-import secret1 from "./secret1.json";
+import secret from "./secret.json";
 import { createUmi } from "@metaplex-foundation/umi-bundle-defaults";
-import { TokenStandard } from "@metaplex-foundation/mpl-token-metadata";
+import {
+  TokenStandard,
+  fetchCollectionAuthorityRecord,
+} from "@metaplex-foundation/mpl-token-metadata";
+import base58 from "bs58";
 
 const collectionMint = "3zXYT4GmN8fuZ3USbHCsz3po5hnP9Nz2Vd2wxFWDvpgj";
-const machineMint = "68ViXqM45iLVtDatAARztL4vkRhu7u7ETXju6NoePQLM";
+const machineMint = "BpCXZdj8Bfi3ZQpKjnPNgkVKpCY8hRXYev5LcAbd3oTj";
 
 const allowList = [
   "BaNS3Sx6MAg8QFu1yXi1Ftt5pjJPMR2vyrQHqaHwGL7r",
@@ -37,45 +42,6 @@ const allowList = [
   "G78qwbjfetiHGHhjKpPLxWrUq4eJqkLotS6CVQ2BQ2ZA",
   "85XUKZ77v3ADNw1QZeLhGSWi1gz1NwbnwqA8QDeQCeRf",
 ];
-
-export async function createMachine(
-  collectionMint: string,
-  collectionUpdateAuthority: any,
-  itemsAvailable = 50
-) {
-  // Create the Candy Machine.
-  const candyMachine = generateSigner(umi);
-  (
-    await create(umi, {
-      candyMachine,
-      collectionMint: publicKey(collectionMint),
-      collectionUpdateAuthority,
-      tokenStandard: TokenStandard.NonFungible,
-      sellerFeeBasisPoints: percentAmount(0),
-      itemsAvailable,
-      symbol: "CHIPZ",
-      creators: [
-        {
-          address: umi.identity.publicKey,
-          verified: true,
-          percentageShare: 100,
-        },
-      ],
-      configLineSettings: some({
-        prefixName: "CHIPZ #",
-        nameLength: 4,
-        symbol: "CHIPZ",
-        prefixUri:
-          "https://bafybeifpyhhx4tufmzikpyty3dvi4veh5xgx4zk47iago524b4h45oxoke.ipfs.nftstorage.link/",
-        uriLength: 9,
-        isSequential: false,
-      }),
-    })
-  ).sendAndConfirm(umi);
-  console.log(
-    `✅ - Created Candy Machine: ${candyMachine.publicKey.toString()}`
-  );
-}
 
 async function updateGuard(candyMachinePk: string) {
   console.log("updateGuard", candyMachinePk);
@@ -85,14 +51,16 @@ async function updateGuard(candyMachinePk: string) {
 
   return await updateCandyGuard(umi, {
     candyGuard: candyGuard.publicKey,
-    guards: {},
+    guards: {
+      addressGate: some({ address: umi.identity.publicKey }),
+    },
     groups: [
-      {
-        label: "pre",
-        guards: {
-          allowList: some({ merkleRoot: getMerkleRoot(allowList) }),
-        },
-      },
+      // {
+      //   label: "pre",
+      //   guards: {
+      //     allowList: some({ merkleRoot: getMerkleRoot(allowList) }),
+      //   },
+      // },
     ],
   }).sendAndConfirm(umi);
 }
@@ -101,23 +69,23 @@ async function mint(umi: Umi, candyMachinePk: string) {
   const candyMachinePublicKey = publicKey(candyMachinePk);
   const candyMachine = await fetchCandyMachine(umi, candyMachinePublicKey);
   const nftMint = generateSigner(umi);
-  return await transactionBuilder()
+  const nft = await transactionBuilder()
     .add(setComputeUnitLimit(umi, { units: 800_000 }))
-    .add(
-      route(umi, {
-        candyMachine: publicKey(candyMachinePk),
-        guard: "allowList",
-        group: "pre",
-        routeArgs: {
-          path: "proof",
-          merkleRoot: getMerkleRoot(allowList),
-          merkleProof: getMerkleProof(
-            allowList,
-            umi.identity.publicKey.toString()
-          ),
-        },
-      })
-    )
+    // .add(
+    //   route(umi, {
+    //     candyMachine: publicKey(candyMachinePk),
+    //     guard: "allowList",
+    //     group: "pre",
+    //     routeArgs: {
+    //       path: "proof",
+    //       merkleRoot: getMerkleRoot(allowList),
+    //       merkleProof: getMerkleProof(
+    //         allowList,
+    //         umi.identity.publicKey.toString()
+    //       ),
+    //     },
+    //   })
+    // )
     .add(
       mintV2(umi, {
         candyMachine: candyMachine.publicKey,
@@ -125,13 +93,18 @@ async function mint(umi: Umi, candyMachinePk: string) {
         collectionMint: candyMachine.collectionMint,
         collectionUpdateAuthority: mySigner.publicKey,
         tokenStandard: candyMachine.tokenStandard,
-        group: "pre",
-        mintArgs: {
-          allowList: some({ merkleRoot: getMerkleRoot(allowList) }),
-        },
+        // group: "pre",
+        // mintArgs: {
+        //   allowList: some({ merkleRoot: getMerkleRoot(allowList) }),
+        // },
       })
     )
     .sendAndConfirm(umi);
+  console.log(
+    `     https://explorer.solana.com/tx/${base58.encode(
+      nft.signature
+    )}?cluster=${cluster}`
+  );
 }
 
 async function insert() {
@@ -156,20 +129,44 @@ async function insert() {
   }).sendAndConfirm(umi);
   console.log(`✅ - Items added to Candy Machine: ${collectionMint}`);
   console.log(
-    `     https://explorer.solana.com/tx/${rsp.signature}?cluster=devnet`
+    `     https://explorer.solana.com/tx/${base58.decode(
+      rsp.signature.toString()
+    )}?cluster=${cluster}`
   );
 }
 
+async function mint2(umi: Umi, candyMachinePk: string, mintTo: string) {
+  const candyMachinePublicKey = publicKey(candyMachinePk);
+  const candyMachine = await fetchCandyMachine(umi, candyMachinePublicKey);
+  const nftMint = generateSigner(umi);
+  const nftOwner = publicKey(mintTo);
+  await transactionBuilder()
+    .add(setComputeUnitLimit(umi, { units: 800_000 }))
+    .add(
+      mintFromCandyMachineV2(umi, {
+        candyMachine: candyMachine.publicKey,
+        mintAuthority: umi.identity,
+        nftOwner,
+        nftMint,
+        collectionMint: candyMachine.collectionMint,
+        collectionUpdateAuthority: umi.identity.publicKey,
+      })
+    )
+    .sendAndConfirm(umi);
+}
 async function main() {
-  // const adminMachine = await createMachine(collectionMint, mySigner, 3);
+  // const adminMachine = await createMachine(collectionMint, mySigner, 350);
   // await updateGuard(machineMint);
 
   // await insert();
 
+  // await insertItems(machineMint, 0, 350, 50, 0);
+
   const umi1 = createUmi(RPC).use(mplCandyMachine());
-  const keypair = umi1.eddsa.createKeypairFromSecretKey(Buffer.from(secret1));
+  const keypair = umi1.eddsa.createKeypairFromSecretKey(Buffer.from(secret));
   console.log("keypair", keypair.publicKey.toString());
   const umiAcc = umi1.use(keypairIdentity(keypair));
   await mint(umiAcc, machineMint);
+  // mint2(umiAcc, machineMint, "EniEGikEJEWpxrAfKVQaJ3xja7xTWPjfk1QXUNYK8g1p");
 }
 main();
