@@ -1,14 +1,26 @@
 import {
+  DefaultGuardSet,
   fetchCandyGuard,
   fetchCandyMachine,
+  findMintCounterPda,
+  fetchMintCounter,
+  fetchAllocationTracker,
+  fetchAllMintCounter,
+  findCandyGuardPda,
+  findAllocationTrackerPda,
   getMerkleRoot,
+  getMerkleProof,
+  getSolPaymentSerializer,
   mintV2,
   route,
   updateCandyGuard,
   updateCandyMachine,
+  getMerkleTree,
 } from "@metaplex-foundation/mpl-candy-machine";
 import { setComputeUnitLimit } from "@metaplex-foundation/mpl-toolbox";
+import { keccak_256 } from "@noble/hashes/sha3";
 import {
+  AccountNotFoundError,
   KeypairSigner,
   PublicKey,
   Signer,
@@ -26,8 +38,8 @@ import bs58 from "bs58";
 import allowListPre from "./allowListPre.json";
 import allowListWL from "./allowListWL.json";
 
-import { getMerkleProof } from "@metaplex-foundation/js";
 import {
+  RPC,
   candyMachinePk,
   cluster,
   collectionMint,
@@ -43,6 +55,11 @@ import {
   TokenStandard,
   transferV1,
 } from "@metaplex-foundation/mpl-token-metadata";
+import {
+  Connection,
+  LAMPORTS_PER_SOL,
+  PublicKey as W3Publickey,
+} from "@solana/web3.js";
 
 async function candyMachineUpdate(candyMachinePk: string) {
   console.log("candyMachineUpdate", candyMachinePk);
@@ -181,14 +198,14 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
         group: some("wl"),
         mintArgs: {
           solPayment: some({
-            lamports: sol(1.2),
-            destination: mySigner.publicKey,
+            lamports: sol(1.1),
+            destination: publicKey(treasury),
           }),
           allocation: some({
-            id: 14,
-            limit: 3500,
+            id: 2,
+            limit: 2700,
           }),
-          mintLimit: some({ id: 15, limit: 2 }),
+          mintLimit: some({ id: 3, limit: 2 }),
           allowList: some({ merkleRoot: getMerkleRoot(allowListWL) }),
           botTax: some({
             lamports: sol(0.01),
@@ -203,6 +220,7 @@ async function mintWL(umi: Umi, candyMachinePk: string) {
 
 async function testMint() {
   const nft1 = await mintWL(umiAcc, candyMachinePk);
+  console.log(base58.encode(nft1.signature));
 }
 
 async function getGuard(candyMachinePk: string) {
@@ -212,6 +230,94 @@ async function getGuard(candyMachinePk: string) {
   console.log(candyGuard);
   for (const g of candyGuard.groups) {
     console.log(g);
+    for (const v of Object.values(g.guards)) {
+      if (v.__option == "Some") {
+        console.log(v.value);
+      }
+    }
+  }
+  return candyGuard;
+}
+
+const connection = new Connection(RPC);
+
+async function checkEligible(
+  label: string,
+  pk: string,
+  candyMachinePk: string,
+  allowListWL?: any[]
+) {
+  const user = publicKey(pk);
+  const candyMachinePublicKey = publicKey(candyMachinePk);
+  const candyMachine = await fetchCandyMachine(umi, candyMachinePublicKey);
+  const candyGuard = await fetchCandyGuard(umi, candyMachine.mintAuthority);
+  const g = candyGuard.groups.find((g) => g.label === label)!;
+
+  //check allow list
+  if (g.guards.allowList.__option === "Some") {
+    if (!allowListWL) throw new Error("allowListWL required");
+    const allowList = getMerkleTree(allowListWL);
+    const validMerkleProof = getMerkleProof(allowListWL, user);
+    const merkleRoot = getMerkleRoot(allowListWL);
+    const isVerify = allowList.verify(
+      validMerkleProof.map((e) => Buffer.from(e)),
+      Buffer.from(keccak_256(pk)),
+      Buffer.from(merkleRoot)
+    );
+    if (!isVerify) {
+      throw new Error("Not in allowlist");
+    }
+  }
+
+  // check item available
+  if (candyMachine.itemsLoaded <= candyMachine.itemsRedeemed) {
+    throw new Error("Sold out");
+  }
+
+  //check sol balance
+  if (g.guards.solPayment.__option === "Some") {
+    let balance = await connection.getBalance(new W3Publickey(pk));
+    console.log(`Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
+    const solPayment = Number(g.guards.solPayment.value.lamports.basisPoints);
+    console.log(`Required: ${solPayment / LAMPORTS_PER_SOL} SOL`);
+    if (balance < solPayment) {
+      throw new Error("sol payment not enough");
+    }
+  }
+
+  //check allocation
+  if (g.guards.allocation.__option === "Some") {
+    const pda = findAllocationTrackerPda(umi, {
+      id: g.guards.allocation.value.id,
+      candyGuard: candyGuard.publicKey,
+      candyMachine: candyMachine.publicKey,
+    });
+    const { count } = await fetchAllocationTracker(umi, pda);
+    console.log(`Allocation ${count}/${g.guards.allocation.value.limit}`);
+    if (count >= g.guards.allocation.value.limit) {
+      throw new Error("Allocation limit reached");
+    }
+  }
+
+  //check mint limit
+  if (g.guards.mintLimit.__option === "Some") {
+    const counterPda = findMintCounterPda(umi, {
+      id: g.guards.mintLimit.value.id,
+      user,
+      candyGuard: candyGuard.publicKey,
+      candyMachine: candyMachinePublicKey,
+    });
+    try {
+      const limit = g.guards.mintLimit.value.limit;
+      const { count } = await fetchMintCounter(umi, counterPda);
+      console.log(`MintLimit ${count}/${limit}`);
+      if (count >= limit) throw new Error("Limit reached");
+    } catch (error) {
+      if (error instanceof AccountNotFoundError) {
+      } else {
+        throw error;
+      }
+    }
   }
 }
 
@@ -231,6 +337,13 @@ async function main() {
   //   candyMachinePk,
   //   publicKey("EniEGikEJEWpxrAfKVQaJ3xja7xTWPjfk1QXUNYK8g1p")
   // );
+
+  await checkEligible(
+    "wl",
+    "7UvSycMiBikyErLyCGrTcAECDrCwghikvD7PunVDh2DS",
+    candyMachinePk,
+    allowListWL
+  );
 }
 
 main();

@@ -7,7 +7,10 @@ import {
   updateCandyGuard,
   updateCandyMachine,
 } from "@metaplex-foundation/mpl-candy-machine";
-import { setComputeUnitLimit } from "@metaplex-foundation/mpl-toolbox";
+import {
+  createMintWithAssociatedToken,
+  setComputeUnitLimit,
+} from "@metaplex-foundation/mpl-toolbox";
 import {
   KeypairSigner,
   PublicKey,
@@ -157,7 +160,6 @@ async function mintAndTransfer() {
           mintTo: sale.address,
         },
       });
-      await sleep(500);
       const txTransfer = await transfer(
         nftMint.publicKey,
         umi.identity,
@@ -186,11 +188,15 @@ async function main() {
   while (!done) {
     try {
       await resend();
+    } catch (error) {
+      logger.error("resend fail");
+      logger.error(error);
+    }
+    try {
       await mintAndTransfer();
       done = true;
     } catch (error) {
       logger.error(error);
-      await sleep(5000);
     }
   }
 }
