@@ -285,7 +285,9 @@ async function checkEligible(
     console.log(`Balance: ${balance / LAMPORTS_PER_SOL} SOL`);
     const solPayment = Number(g.guards.solPayment.value.lamports.basisPoints);
     console.log(`Required: ${solPayment / LAMPORTS_PER_SOL} SOL`);
-    if (balance < solPayment) {
+
+    const gas = 20000000; // 0.02 in decimals 9
+    if (balance < solPayment + gas) {
       throw new Error("sol payment not enough");
     }
   }
