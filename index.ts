@@ -270,7 +270,12 @@ async function checkEligible(
   }
 
   // check item available
-  if (candyMachine.itemsLoaded <= candyMachine.itemsRedeemed) {
+  console.log(
+    `Item available: ${Number(candyMachine.itemsRedeemed)}/${
+      candyMachine.itemsLoaded
+    }`
+  );
+  if (candyMachine.itemsLoaded <= Number(candyMachine.itemsRedeemed)) {
     throw new Error("Sold out");
   }
 
