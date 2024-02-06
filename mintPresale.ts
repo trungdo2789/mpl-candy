@@ -31,11 +31,14 @@ import { candyMachinePk, cluster, mySigner, umi } from "./common";
 import base58 from "bs58";
 import {
   TokenStandard,
+  delegateStandardV1,
+  lockV1,
   transferV1,
 } from "@metaplex-foundation/mpl-token-metadata";
 import { PrismaClient } from "@prisma/client";
 import winston from "winston";
 const { combine, timestamp, label, printf } = winston.format;
+const prisma = new PrismaClient();
 
 const logFormat = printf(({ level, message, label, timestamp }) => {
   return `${timestamp} [${label}] ${level}: ${message}`;
@@ -55,7 +58,11 @@ const logger = winston.createLogger({
   ],
 });
 
-async function mintPre(umiacc: Umi, candyMachinePk: string) {
+async function mintPre(
+  umiacc: Umi,
+  candyMachinePk: string,
+  newOwner: PublicKey
+) {
   const candyMachinePublicKey = publicKey(candyMachinePk);
   const candyMachine = await fetchCandyMachine(umiacc, candyMachinePublicKey);
   const nftMint = generateSigner(umiacc);
@@ -80,7 +87,17 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
         },
       })
     )
+    .add(
+      transferV1(umiacc, {
+        mint: nftMint.publicKey,
+        authority: umiacc.identity,
+        tokenOwner: umiacc.identity.publicKey,
+        destinationOwner: newOwner,
+        tokenStandard: TokenStandard.NonFungible,
+      })
+    )
     .sendAndConfirm(umiacc);
+
   logger.info(`✅ - Minted NFT: ${nftMint.publicKey}`);
   logger.info(
     `     https://explorer.solana.com/tx/${base58.encode(
@@ -88,52 +105,6 @@ async function mintPre(umiacc: Umi, candyMachinePk: string) {
     )}?cluster=${cluster}`
   );
   return { nftMint, txMint: base58.encode(tx.signature) };
-}
-
-async function transfer(
-  mint: PublicKey,
-  currentOwner: Signer,
-  newOwner: PublicKey
-) {
-  const tx = await transferV1(umi, {
-    mint,
-    authority: currentOwner,
-    tokenOwner: currentOwner.publicKey,
-    destinationOwner: newOwner,
-    tokenStandard: TokenStandard.NonFungible,
-  }).sendAndConfirm(umi);
-  logger.info(`✅ - Transfer NFT: ${mint} -> ${newOwner}`);
-  logger.info(
-    `     https://explorer.solana.com/tx/${base58.encode(
-      tx.signature
-    )}?cluster=${cluster}`
-  );
-  return base58.encode(tx.signature);
-}
-const prisma = new PrismaClient();
-
-async function resend() {
-  const resendList = await prisma.tx.findMany({
-    where: {
-      txTransfer: null,
-    },
-  });
-  logger.info(`Find ${resendList.length} nft need resend!`);
-  for (const tx of resendList) {
-    const txTransfer = await transfer(
-      publicKey(tx.mint),
-      umi.identity,
-      publicKey(tx.mintTo)
-    );
-    await prisma.tx.update({
-      where: {
-        mint: tx.mint,
-      },
-      data: {
-        txTransfer,
-      },
-    });
-  }
 }
 
 async function mintAndTransfer() {
@@ -152,25 +123,16 @@ async function mintAndTransfer() {
       logger.info(
         `address ${sale.address}, minting: ${minted + i + 1}/${sale.amount}`
       );
-      const { nftMint, txMint } = await mintPre(umi, candyMachinePk);
+      const { nftMint, txMint } = await mintPre(
+        umi,
+        candyMachinePk,
+        publicKey(sale.address)
+      );
       await prisma.tx.create({
         data: {
           mint: nftMint.publicKey.toString(),
           txMint,
           mintTo: sale.address,
-        },
-      });
-      const txTransfer = await transfer(
-        nftMint.publicKey,
-        umi.identity,
-        publicKey(sale.address)
-      );
-      await prisma.tx.update({
-        where: {
-          mint: nftMint.publicKey.toString(),
-        },
-        data: {
-          txTransfer,
         },
       });
     }
@@ -186,12 +148,6 @@ function sleep(ms: number) {
 async function main() {
   let done = false;
   while (!done) {
-    try {
-      await resend();
-    } catch (error) {
-      logger.error("resend fail");
-      logger.error(error);
-    }
     try {
       await mintAndTransfer();
       done = true;
