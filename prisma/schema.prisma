@@ -11,8 +11,8 @@ datasource db {
 }
 
 model tx {
-  mint       String  @id
-  txMint     String
-  txTransfer String?
-  mintTo     String
+  mint   String  @id
+  txMint String?
+  mintTo String
+  secret String
 }

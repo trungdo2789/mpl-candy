@@ -34,6 +34,7 @@ const keypair2 = umi1.eddsa.createKeypairFromSecretKey(Buffer.from(secret1));
 export const umiAcc = umi2.use(keypairIdentity(keypair2));
 
 export const mySigner = createSignerFromKeypair(umi, keypair);
+export const acc2Signer = createSignerFromKeypair(umiAcc, keypair);
 
 console.log("admin signer", mySigner.publicKey);
 
